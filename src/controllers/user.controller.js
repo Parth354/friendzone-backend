@@ -5,7 +5,7 @@ const options = {
     httpOnly: true,
     Secure: true,
     maxAge: 86400000,
-    SameSite:None,
+    SameSite:none,
     Path:'/'
 }
 const generateAccessAndRefreshToken = async(userId) =>{
