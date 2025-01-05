@@ -5,7 +5,7 @@ import cookieParser from 'cookie-parser';
 const app = express();
 
 app.use(cors({
-    origin: 'https://friendzone-pi.vercel.app/',
+    origin: '*',
     credentials: true
 }))
 app.use(cookieParser());
