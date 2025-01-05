@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { checkUsernameAvailablity, getCurrentUser, refreshAceessToken, registerUser, userLogin, userLogout } from "../controllers/user.controller.js";
+import { checkUsernameAvailablity, getCurrentUser, refreshAceessToken, registerUser, searchUsername, userLogin, userLogout } from "../controllers/user.controller.js";
 import { verifyJWT } from "../middleware/auth.middleware.js";
 import { acceptFriendRequest, getFriendSuggestions, getUserFriends, getUserPendingRequests, rejectFriendRequest, sendFriendRequest} from "../controllers/friendship.controller.js";
 
@@ -18,5 +18,6 @@ router.route("/rejectRequest/:friendId").get(verifyJWT,rejectFriendRequest);
 router.route("/sendRequest/:recipientId").get(verifyJWT,sendFriendRequest);
 router.route("/getFriendSuggestion").get(verifyJWT,getFriendSuggestions)
 router.route("/getCurrentUser").get(verifyJWT,getCurrentUser)
+router.route("/searchUsername").get(verifyJWT,searchUsername)
 
 export default router;

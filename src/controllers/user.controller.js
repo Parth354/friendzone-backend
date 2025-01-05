@@ -124,7 +124,16 @@ const getCurrentUser = async(req,res)=>{
     return res.status(200).json({message:"Fetched User Successfully!",user: user})
 }
 
+const searchUsername=async(req,res)=>{
+    const {query }=req.query;
+    if(!query) return res.status(404).json({message:"No Users Found!"})
+        const filterResults = await User.find({
+            username: { $regex: query, $options: "i" },
+          });
+    
+    return res.status(200).json({filterResults})
+}
 
-export {registerUser, userLogin, userLogout, refreshAceessToken, checkUsernameAvailablity , getCurrentUser};
+export {searchUsername,registerUser, userLogin, userLogout, refreshAceessToken, checkUsernameAvailablity , getCurrentUser};
 
 

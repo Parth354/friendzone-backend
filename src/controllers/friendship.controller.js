@@ -12,10 +12,11 @@ const sendFriendRequest = async (req, res) => {
     if(!recipientId){
         return res.status(404).json({message:"Server Error! Check request URL"})
     }
-    if(requesterId === recipientId){  
+   
+    const recipientMongoId = await getMongoUserId(recipientId);
+    if(requesterId === recipientMongoId){  
         return res.status(400).json({ message: "You cannot send friend request to yourself." });
     }
-    const recipientMongoId = await getMongoUserId(recipientId);
     const existingRequest = await Friendship.findOne({ requester: requesterId, recipient: recipientMongoId ,status:"pending"});
     
     if (existingRequest) {
@@ -51,21 +52,20 @@ const acceptFriendRequest = async (req, res) => {
 const rejectFriendRequest = async (req, res) => {
     const userId = req.user._id;
     const { friendId } = req.params;
-    if(!requesterId){
+    if(!friendId){
         return res.status(404).json({message:"Server Error! Check request URL"})
     }
-    const friendMongoId =getMongoUserId(friendId)
+    const friendMongoId =await getMongoUserId(friendId)
         const friendship = await Friendship.findOneAndDelete({$or: [
-            { requester: userId, recipient: friendMongoId },
-            { requester: friendMongoId, recipient: userId }
+            { requester: userId, recipient: friendMongoId ,status:"accepted"},
+            { requester: friendMongoId, recipient: userId ,status:"accepted"}
         ]} );
-
     
     if (!friendship) {
         return res.status(400).json({ message: "Friend request not found." });
     }
     
-    res.status(200).json({ message: "Friend request rejected." });
+    return res.status(200).json({ message: "Friend request rejected." });
 };
 
 const getUserFriends = async (req, res) => {
@@ -94,7 +94,7 @@ const getFriends = async (userId) => {
         status: 'accepted'
     }).populate('requester recipient' ,'username');
     return friends.map(request=>({
-        username : request.recipient._id === userId ? request.requester._id : request.recipient._id,
+        username : request.recipient._id === userId ? request.requester.username : request.recipient.username,
         id: request._id
     }))
 };
