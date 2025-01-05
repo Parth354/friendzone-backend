@@ -1,30 +1,42 @@
 import { Friendship } from "../models/friend.model.js";
+import { User } from "../models/user.model.js";
 
+const getMongoUserId=async(username)=>{
+    const user= await User.findOne({username:username})
+    return user?._id ;
+}
 
 const sendFriendRequest = async (req, res) => {
-    const requesterId = req.user._id.toString();
+    const requesterId = req.user._id;
     const { recipientId } = req.params;
+    if(!recipientId){
+        return res.status(404).json({message:"Server Error! Check request URL"})
+    }
     if(requesterId === recipientId){  
         return res.status(400).json({ message: "You cannot send friend request to yourself." });
     }
-    const existingRequest = await Friendship.findOne({ requester: requesterId, recipient: recipientId });
+    const recipientMongoId = await getMongoUserId(recipientId);
+    const existingRequest = await Friendship.findOne({ requester: requesterId, recipient: recipientMongoId ,status:"pending"});
     
     if (existingRequest) {
         return res.status(400).json({ message: "Friend request already sent." });
     }
     
-    const newRequest = new Friendship({ requester: requesterId, recipient: recipientId });
+    const newRequest = await Friendship.create({ requester: requesterId, recipient: recipientMongoId });
     await newRequest.save();
-    
-    res.status(200).json({ message: "Friend request sent." });
+    return res.status(200).json({ message: "Friend request sent." });
 };
 
 const acceptFriendRequest = async (req, res) => {
-    const recipientId = req.user._id.toString();
+    const recipientId = req.user._id;
     const { requesterId } = req.params;
+    if(!requesterId){
+        return res.status(404).json({message:"Server Error! Check request URL"})
+    }
+    const requesterMongoId = await getMongoUserId(requesterId);
     
     const friendship = await Friendship.findOneAndUpdate(
-        { requester: requesterId, recipient: recipientId },
+        { requester: requesterMongoId, recipient: recipientId },
         { status: 'accepted' },
         { new: true }
     );
@@ -37,11 +49,15 @@ const acceptFriendRequest = async (req, res) => {
 };
 
 const rejectFriendRequest = async (req, res) => {
-    const userId = req.user._id.toString();
+    const userId = req.user._id;
     const { friendId } = req.params;
+    if(!requesterId){
+        return res.status(404).json({message:"Server Error! Check request URL"})
+    }
+    const friendMongoId =getMongoUserId(friendId)
         const friendship = await Friendship.findOneAndDelete({$or: [
-            { requester: userId, recipient: friendId },
-            { requester: friendId, recipient: userId }
+            { requester: userId, recipient: friendMongoId },
+            { requester: friendMongoId, recipient: userId }
         ]} );
 
     
@@ -53,31 +69,90 @@ const rejectFriendRequest = async (req, res) => {
 };
 
 const getUserFriends = async (req, res) => {
-    const userId = req.params.userId;
+    const userId = req.user._id;
     
     const friends = await getFriends(userId);
-    res.status(200).json(friends);
+    if(!friends){
+       return res.status(200).json({message:"No Friends"})
+    }
+   return res.status(200).json({friends});
 };
 
 const getUserPendingRequests = async (req, res) => {
-    const userId = req.params.userId;
+    const userId = req.user._id
     
     const pendingRequests = await getPendingRequests(userId);
-    res.status(200).json(pendingRequests);
+    if(!pendingRequests){
+        return res.status(200).json({message:"No pending Friend Request"})
+    }
+    return res.status(200).json({pendingRequests});
 };
 
 const getFriends = async (userId) => {
-    return await Friendship.find({
+    const friends =await Friendship.find({
         $or: [{ requester: userId }, { recipient: userId }],
         status: 'accepted'
-    }).populate('requester recipient');
+    }).populate('requester recipient' ,'username');
+    return friends.map(request=>({
+        username : request.recipient._id === userId ? request.requester._id : request.recipient._id,
+        id: request._id
+    }))
 };
 
 const getPendingRequests = async (userId) => {
-    return await Friendship.find({
+    const requests = await Friendship.find({
         recipient: userId,
         status: 'pending'
-    }).populate('requester');
+    }).populate('requester', 'username _id');
+
+    return requests.map(request => ({
+        username: request.requester.username,
+        _id: request._id
+    }));
 };
 
-export { sendFriendRequest, acceptFriendRequest, rejectFriendRequest, getUserFriends, getUserPendingRequests };
+const getFriendSuggestions = async (req, res) => {
+    const userId = req.user._id;
+
+    try {
+        const friends = await Friendship.find({
+            $or: [{ requester: userId }, { recipient: userId }],
+            status: 'accepted',
+        }).select('requester recipient');
+
+        const friendIds = friends.map(friend => 
+            friend.requester.toString() === userId.toString() 
+            ? friend.recipient.toString() 
+            : friend.requester.toString()
+        );
+
+        const mutualFriends = await Friendship.find({
+            $or: [{ requester: { $in: friendIds } }, { recipient: { $in: friendIds } }],
+            status: 'accepted',
+            $and: [
+                { requester: { $ne: userId } },
+                { recipient: { $ne: userId } },
+                { requester: { $nin: friendIds } },
+                { recipient: { $nin: friendIds } }
+            ]
+        }).select('requester recipient');
+
+        const suggestedFriendIds = new Set();
+        mutualFriends.forEach(({ requester, recipient }) => {
+            if (!friendIds.includes(requester.toString()) && requester.toString() !== userId.toString()) {
+                suggestedFriendIds.add(requester.toString());
+            }
+            if (!friendIds.includes(recipient.toString()) && recipient.toString() !== userId.toString()) {
+                suggestedFriendIds.add(recipient.toString());
+            }
+        });
+
+        const suggestedFriends = await User.find({ _id: { $in: Array.from(suggestedFriendIds) } }).select('-password -refreshToken');
+
+       return res.status(200).json(suggestedFriends);
+    } catch (error) {
+        res.status(500).json({ message: "Failed to fetch friend suggestions", error: error.message });
+    }
+};
+
+export { getFriendSuggestions,sendFriendRequest, acceptFriendRequest, rejectFriendRequest, getUserFriends, getUserPendingRequests };

@@ -35,23 +35,23 @@ const registerUser = async(req,res) => {
             email,
             password
         });
-        await user.save();
-        const createdUser = await User.findById(user._id).select("-password -refreshToken");
-        return res.status(200).json({message: "User registered successfully!", user: createdUser});
+        await user.save()
+        return userLogin(req,res)
+       
     } catch (error) {
-        return res.status(500).json({message: "Internal server error!"});
+        return res.status(500).json({message: "Internal server error!" + error?.message});
     }
 }
 
 const userLogin = async(req,res) => {
-    const loginCredential = req.body.username || req.body.email;
+    const loginCredential = req.body.loginCredential || req.body.username;
     const { password } = req.body;
     if ([loginCredential, password].some((field) => field?.trim() === "")) {
         return res.status(400).json({message: "All fields are required!"});
     }
-    const user = await User.findOne({$or: [{username: loginCredential}, {email: loginCredential}]});
+    const user = await User.findOne({ $or: [{ email: loginCredential }, { username: loginCredential }] });
     if(!user){
-        return res.status(400).json({message: "Invalid credentials!"});
+        return res.status(400).json({message: "No Account Exists"});
     }
     const isPasswordMatch = await user.isPasswordMatch(password);
     if(!isPasswordMatch){
@@ -101,7 +101,7 @@ const refreshAceessToken = async(req,res) => {
 }
 
 const checkUsernameAvailablity = async(req,res) => {
-    const {username} = req.body;
+    const {username} = req.params;
     if(!username){
         return res.status(400).json({message: "Username is required!"});
     }
@@ -114,9 +114,16 @@ const checkUsernameAvailablity = async(req,res) => {
     }
 }
 
+const getCurrentUser = async(req,res)=>{
+    const userId = req.user._id.toString()
+    const user = await User.findById(userId).select("-password -refreshToken")
+    if(!user){
+        return res.status(400).json({message:"No User Exists"})
+    }
+    return res.status(200).json({message:"Fetched User Successfully!",user: user})
+}
 
 
-
-export {registerUser, userLogin, userLogout, refreshAceessToken, checkUsernameAvailablity};
+export {registerUser, userLogin, userLogout, refreshAceessToken, checkUsernameAvailablity , getCurrentUser};
 
 
