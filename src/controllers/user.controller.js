@@ -3,11 +3,11 @@ import jwt from "jsonwebtoken";
 
 const options = {
     httpOnly: true,
-    Secure: true,
-    maxAge: 86400000,
-    SameSite:none,
-    Path:'/'
-}
+    secure: true, 
+    maxAge: 86400000, 
+    sameSite: 'None', 
+    path: '/' 
+};
 const generateAccessAndRefreshToken = async(userId) =>{
     try {
         const user = await User.findById(userId);
