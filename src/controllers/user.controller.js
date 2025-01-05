@@ -3,7 +3,8 @@ import jwt from "jsonwebtoken";
 
 const options = {
     httpOnly: true,
-    secure: true
+    secure: true,
+    maxAge: 86400000
 }
 const generateAccessAndRefreshToken = async(userId) =>{
     try {
