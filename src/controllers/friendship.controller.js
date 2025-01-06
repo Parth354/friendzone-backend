@@ -58,7 +58,9 @@ const rejectFriendRequest = async (req, res) => {
     const friendMongoId =await getMongoUserId(friendId)
         const friendship = await Friendship.findOneAndDelete({$or: [
             { requester: userId, recipient: friendMongoId ,status:"pending"},
-            { requester: friendMongoId, recipient: userId ,status:"pending"}
+            { requester: friendMongoId, recipient: userId ,status:"pending"},
+            { requester: friendMongoId, recipient: userId ,status:"accepted"},
+            { requester: userId, recipient: friendMongoId ,status:"accepted"}
         ]} );
     
     if (!friendship) {
@@ -94,7 +96,7 @@ const getFriends = async (userId) => {
         status: 'accepted'
     }).populate('requester recipient' ,'username');
     return friends.map(request=>({
-        username : request.recipient._id === userId ? request.requester.username : request.recipient.username,
+        username : request.recipient._id === userId ? request.recipient.username : request.requester.username,
         id: request._id
     }))
 };

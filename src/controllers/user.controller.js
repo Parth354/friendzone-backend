@@ -1,3 +1,4 @@
+import { Friendship } from "../models/friend.model.js";
 import { User } from "../models/user.model.js";
 import jwt from "jsonwebtoken";
 
@@ -129,10 +130,30 @@ const getCurrentUser = async(req,res)=>{
 const searchUsername=async(req,res)=>{
     const {query }=req.query;
     if(!query) return res.status(404).json({message:"No Users Found!"})
-        const filterResults = await User.find({
+        var filterResults = await User.find({
             username: { $regex: query, $options: "i" },
-          });
-    
+          }).limit(5);
+
+        const userId = req.user._id
+        filterResults = await Promise.all(filterResults.map(async (request) => {
+            if (userId.toString() !== request._id.toString()) {
+              const findFriendship = await Friendship.findOne({
+                $or: [
+                  { requester: userId, recipient: request._id, status: "accepted" },
+                  { requester: request._id, recipient: userId, status: "accepted" }
+                ]
+              });
+              const requestWithStatus = {
+                ...request.toObject(),
+                isFriend: !!findFriendship
+              };
+              return requestWithStatus;
+            }
+            return null;
+          }));
+          const filteredNonNullResults = filterResults.filter(request => request !== null);
+          return res.status(200).json({ filterResults: filteredNonNullResults });
+        
     return res.status(200).json({filterResults})
 }
 
