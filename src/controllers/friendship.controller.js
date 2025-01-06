@@ -57,8 +57,8 @@ const rejectFriendRequest = async (req, res) => {
     }
     const friendMongoId =await getMongoUserId(friendId)
         const friendship = await Friendship.findOneAndDelete({$or: [
-            { requester: userId, recipient: friendMongoId ,status:"accepted"},
-            { requester: friendMongoId, recipient: userId ,status:"accepted"}
+            { requester: userId, recipient: friendMongoId ,status:"pending"},
+            { requester: friendMongoId, recipient: userId ,status:"pending"}
         ]} );
     
     if (!friendship) {
